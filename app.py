@@ -365,7 +365,7 @@ elif page == "🌐 搜索试卷":
     st.header("🌐 搜索试卷")
     st.markdown("通过AI辅助搜索网上的试卷资源")
 
-    tab1, tab2 = st.tabs(["🔎 关键词搜索", "🤖 AI智能查找"])
+    tab1, tab2, tab3 = st.tabs(["🔎 关键词搜索", "🤖 AI智能查找", "🕷️ 爬取并分析"])
 
     with tab1:
         search_query = st.text_input("搜索关键词", placeholder="如：2024年高考数学真题")
@@ -428,3 +428,58 @@ elif page == "🌐 搜索试卷":
             st.markdown("---")
             st.subheader("🤖 查找结果")
             st.markdown(result)
+
+    with tab3:
+        st.markdown("从教育网站爬取试卷内容，AI自动分析")
+
+        crawl_query = st.text_input(
+            "爬取关键词",
+            placeholder="如：2024高考数学全国卷",
+            key="crawl_query",
+        )
+
+        col1, col2 = st.columns(2)
+        with col1:
+            do_crawl = st.button("🕷️ 爬取试卷", use_container_width=True, key="crawl_btn")
+        with col2:
+            do_crawl_analyze = st.button("🕷️+📊 爬取并分析", use_container_width=True, key="crawl_analyze_btn")
+
+        if do_crawl or do_crawl_analyze:
+            if not crawl_query:
+                st.error("请输入爬取关键词")
+                st.stop()
+
+            from services.crawler import crawl_all_sites, crawl_and_format
+
+            with st.spinner("正在爬取教育网站，请稍候..."):
+                all_results = crawl_all_sites(crawl_query)
+
+            if all_results:
+                st.subheader("🕷️ 爬取结果")
+                for site_name, items in all_results.items():
+                    with st.expander(f"📌 {site_name} ({len(items)}条)", expanded=True):
+                        for item in items:
+                            st.markdown(f"**{item['title']}**")
+                            if item.get("url"):
+                                st.markdown(f"🔗 [{item['url']}]({item['url']})")
+                            if item.get("content"):
+                                st.text(item["content"][:500])
+                            st.markdown("---")
+
+                # AI分析爬取到的内容
+                if do_crawl_analyze:
+                    if not check_api_config():
+                        st.stop()
+
+                    crawled_text = crawl_and_format(crawl_query)
+                    from services.paper_analyzer import analyze_paper
+
+                    with st.spinner("AI正在分析爬取到的试卷内容..."):
+                        analysis = analyze_paper(crawled_text)
+
+                    st.markdown("---")
+                    st.subheader("📊 AI分析结果")
+                    st.markdown(analysis)
+            else:
+                st.warning("未能从教育网站爬取到内容，可能是网站限制或网络问题。")
+                st.info("建议：尝试更换关键词，或使用"关键词搜索"功能。")

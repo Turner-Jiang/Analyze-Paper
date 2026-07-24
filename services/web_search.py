@@ -131,14 +131,18 @@ def search_papers(query: str, max_results: int | None = None) -> list[dict]:
 
 def search_and_summarize(query: str) -> str:
     """
-    综合搜索：DDG + 教育网站，然后AI总结
+    综合搜索：DDG + 教育网站爬虫，然后AI总结
     :param query: 搜索关键词
     :return: AI整理后的结果
     """
-    # 1. 从教育网站获取资源链接
+    # 1. 爬虫抓取教育网站实际内容
+    from services.crawler import crawl_and_format
+    crawled_content = crawl_and_format(query)
+
+    # 2. 从教育网站获取资源链接
     edu_results = search_education_sites(query)
 
-    # 2. DDG通用搜索
+    # 3. DDG通用搜索
     ddg_results = search_papers(query)
     ddg_text = ""
     if ddg_results:
@@ -148,14 +152,15 @@ def search_and_summarize(query: str) -> str:
             href = r.get("href", "")
             ddg_text += f"{i}. 【{title}】\n   {body}\n   链接：{href}\n\n"
 
-    # 3. AI整合所有结果
-    system_prompt = """你是一位中国教育资源检索专家。请根据以下搜索结果，为用户整理出有用的试卷资源信息。
+    # 4. AI整合所有结果
+    system_prompt = """你是一位中国教育资源检索专家。请根据以下搜索和爬取结果，为用户整理出有用的试卷资源信息。
 
 要求：
-1. 优先推荐可直接访问的链接
-2. 按照资源类型分类整理（官方网站、在线题库、社区讨论等）
-3. 给出每个资源的简要说明
-4. 如果搜索结果不理想，请根据你的知识补充推荐
+1. 如果爬取到了试卷内容，优先展示并分析
+2. 提供可直接访问的链接
+3. 按照资源类型分类整理（真题、模拟卷、题库、讨论等）
+4. 给出每个资源的简要说明和推荐理由
+5. 如果爬取到实际试题内容，给出简要预览
 
 常用中国教育资源网站：
 - 中国教育考试网 (neea.edu.cn) - 官方考试信息
@@ -169,13 +174,16 @@ def search_and_summarize(query: str) -> str:
 
     user_prompt = f"""搜索关键词：{query}
 
-===== 教育网站资源 =====
+===== 网站爬取内容 =====
+{crawled_content if crawled_content else "未能爬取到内容"}
+
+===== 教育网站资源链接 =====
 {edu_results}
 
 ===== 通用搜索结果 =====
 {ddg_text if ddg_text else "无相关结果"}
 
-请整理以上信息，为用户提供获取"{query}"相关试卷的最佳途径。"""
+请整理以上信息，为用户提供获取"{query}"相关试卷的最佳途径和内容预览。"""
 
     return chat(system_prompt, user_prompt)
 
