@@ -1,12 +1,83 @@
 """
-网络搜索模块 - 通过AI工具搜索试卷资源
+网络搜索模块 - 通过搜索引擎和教育网站获取试卷资源
 """
 from __future__ import annotations
 
 import time
+import requests
 from duckduckgo_search import DDGS
 from config import SEARCH_CONFIG
 from services.ai_service import chat
+
+# 中国教育资源网站列表
+EDUCATION_SITES = {
+    "中国教育考试网": "https://www.neea.edu.cn",
+    "学科网": "https://www.zxxk.com",
+    "中学学科网": "https://www.xuekewang.com",
+    "组卷网": "https://www.zujuan.com",
+    "知乎-高考": "https://www.zhihu.com/search?type=content&q=",
+    "百度文库": "https://wenku.baidu.com/search?word=",
+}
+
+
+def fetch_page_content(url: str, timeout: int = 10) -> str:
+    """
+    抓取网页内容
+    :param url: 网址
+    :param timeout: 超时时间
+    :return: 网页文本内容
+    """
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "zh-CN,zh;q=0.9",
+        }
+        resp = requests.get(url, headers=headers, timeout=timeout)
+        resp.encoding = resp.apparent_encoding
+        # 只取前面一部分，避免太长
+        return resp.text[:5000]
+    except Exception as e:
+        return f"[抓取失败: {e}]"
+
+
+def search_education_sites(query: str) -> str:
+    """
+    从中国教育网站搜索相关内容
+    :param query: 搜索关键词
+    :return: 抓取到的内容摘要
+    """
+    results = []
+
+    # 知乎搜索
+    zhihu_url = f"https://www.zhihu.com/search?type=content&q={query}"
+    results.append(f"【知乎搜索】链接：{zhihu_url}")
+
+    # 百度文库搜索
+    baidu_url = f"https://wenku.baidu.com/search?word={query}"
+    results.append(f"【百度文库】链接：{baidu_url}")
+
+    # 组卷网搜索
+    zujuan_url = f"https://www.zujuan.com/search?keyword={query}"
+    results.append(f"【组卷网】链接：{zujuan_url}")
+
+    # 学科网搜索
+    xkw_url = f"https://www.zxxk.com/search?keyword={query}"
+    results.append(f"【学科网】链接：{xkw_url}")
+
+    # 用DuckDuckGo限定教育网站搜索
+    site_query = f"{query} site:zhihu.com OR site:zujuan.com OR site:zxxk.com OR site:neea.edu.cn"
+    try:
+        ddg_results = DDGS().text(site_query, region="wt-wt", max_results=5)
+        if ddg_results:
+            for r in ddg_results:
+                title = r.get("title", "")
+                href = r.get("href", "")
+                body = r.get("body", "")
+                results.append(f"【{title}】\n  {body}\n  链接：{href}")
+    except Exception:
+        pass
+
+    return "\n\n".join(results)
 
 
 def search_papers(query: str, max_results: int | None = None) -> list[dict]:
@@ -18,7 +89,6 @@ def search_papers(query: str, max_results: int | None = None) -> list[dict]:
     """
     max_results = max_results or SEARCH_CONFIG["max_results"]
 
-    # 尝试多次搜索
     for attempt in range(3):
         try:
             results = DDGS().text(
@@ -28,7 +98,6 @@ def search_papers(query: str, max_results: int | None = None) -> list[dict]:
             )
             if results:
                 return results
-            # 如果结果为空，换用全球区域重试
             results = DDGS().text(
                 query,
                 region="wt-wt",
@@ -47,32 +116,49 @@ def search_papers(query: str, max_results: int | None = None) -> list[dict]:
 
 def search_and_summarize(query: str) -> str:
     """
-    搜索并用AI总结结果。如果搜索失败，让AI根据自身知识提供建议。
+    综合搜索：DDG + 教育网站，然后AI总结
     :param query: 搜索关键词
-    :return: AI整理后的搜索结果摘要
+    :return: AI整理后的结果
     """
-    results = search_papers(query)
+    # 1. 从教育网站获取资源链接
+    edu_results = search_education_sites(query)
 
-    if not results:
-        # 搜索无结果时，让AI根据自身知识推荐
-        system_prompt = """你是一位教育资源推荐专家。用户想查找试卷资源但搜索未返回结果。
-请根据你的知识，为用户推荐可能找到相关试卷的网站和途径，并给出搜索建议。"""
-        user_prompt = f"用户想查找：{query}\n\n请推荐获取此类试卷的途径和建议。"
-        return chat(system_prompt, user_prompt)
+    # 2. DDG通用搜索
+    ddg_results = search_papers(query)
+    ddg_text = ""
+    if ddg_results:
+        for i, r in enumerate(ddg_results, 1):
+            title = r.get("title", "无标题")
+            body = r.get("body", "无摘要")
+            href = r.get("href", "")
+            ddg_text += f"{i}. 【{title}】\n   {body}\n   链接：{href}\n\n"
 
-    # 整理搜索结果
-    results_text = ""
-    for i, r in enumerate(results, 1):
-        title = r.get("title", "无标题")
-        body = r.get("body", "无摘要")
-        href = r.get("href", "")
-        results_text += f"{i}. 【{title}】\n   {body}\n   链接：{href}\n\n"
+    # 3. AI整合所有结果
+    system_prompt = """你是一位中国教育资源检索专家。请根据以下搜索结果，为用户整理出有用的试卷资源信息。
 
-    # 用AI总结
-    system_prompt = """你是一位教育资源检索助手。请对搜索结果进行整理和总结，
-帮助用户快速了解找到了哪些有用的试卷资源。如果有可下载的链接，请特别标出。"""
+要求：
+1. 优先推荐可直接访问的链接
+2. 按照资源类型分类整理（官方网站、在线题库、社区讨论等）
+3. 给出每个资源的简要说明
+4. 如果搜索结果不理想，请根据你的知识补充推荐
 
-    user_prompt = f"搜索关键词：{query}\n\n搜索结果：\n{results_text}\n\n请整理这些结果。"
+常用中国教育资源网站：
+- 中国教育考试网 (neea.edu.cn) - 官方考试信息
+- 学科网 (zxxk.com) - 试卷下载
+- 组卷网 (zujuan.com) - 在线组卷
+- 知乎 (zhihu.com) - 学习经验和资源分享
+- 百度文库 (wenku.baidu.com) - 文档资源
+- 高考网 (gaokao.com) - 高考资源"""
+
+    user_prompt = f"""搜索关键词：{query}
+
+===== 教育网站资源 =====
+{edu_results}
+
+===== 通用搜索结果 =====
+{ddg_text if ddg_text else "无相关结果"}
+
+请整理以上信息，为用户提供获取"{query}"相关试卷的最佳途径。"""
 
     return chat(system_prompt, user_prompt)
 
