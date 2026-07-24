@@ -1,6 +1,7 @@
 """
 AI服务模块 - 封装AWS Bedrock调用
 """
+from __future__ import annotations
 
 import json
 import boto3

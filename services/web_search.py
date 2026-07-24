@@ -1,6 +1,7 @@
 """
 网络搜索模块 - 通过AI工具搜索试卷资源
 """
+from __future__ import annotations
 
 from duckduckgo_search import DDGS
 from config import SEARCH_CONFIG

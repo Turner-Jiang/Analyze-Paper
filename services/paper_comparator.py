@@ -1,6 +1,7 @@
 """
 试卷比较模块 - 比较多份试卷的异同
 """
+from __future__ import annotations
 
 from services.ai_service import chat
 

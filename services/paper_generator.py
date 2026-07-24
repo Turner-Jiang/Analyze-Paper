@@ -1,6 +1,7 @@
 """
 试卷生成模块 - 根据参数或参考试卷生成新试卷
 """
+from __future__ import annotations
 
 from services.ai_service import chat
 
