@@ -17,6 +17,9 @@ EDUCATION_SITES = {
     "组卷网": "https://www.zujuan.com",
     "知乎-高考": "https://www.zhihu.com/search?type=content&q=",
     "百度文库": "https://wenku.baidu.com/search?word=",
+    "全国卷网": "https://www.quanguo.cn",
+    "高考网": "https://www.gaokao.com",
+    "教育部阳光高考平台": "https://gaokao.chsi.com.cn",
 }
 
 
@@ -64,8 +67,20 @@ def search_education_sites(query: str) -> str:
     xkw_url = f"https://www.zxxk.com/search?keyword={query}"
     results.append(f"【学科网】链接：{xkw_url}")
 
+    # 全国卷网
+    quanguo_url = f"https://www.quanguo.cn"
+    results.append(f"【全国卷网】链接：{quanguo_url}")
+
+    # 高考网
+    gaokao_url = f"https://www.gaokao.com/search?q={query}"
+    results.append(f"【高考网】链接：{gaokao_url}")
+
+    # 教育部阳光高考平台
+    chsi_url = f"https://gaokao.chsi.com.cn"
+    results.append(f"【教育部阳光高考平台】链接：{chsi_url}")
+
     # 用DuckDuckGo限定教育网站搜索
-    site_query = f"{query} site:zhihu.com OR site:zujuan.com OR site:zxxk.com OR site:neea.edu.cn"
+    site_query = f"{query} site:zhihu.com OR site:zujuan.com OR site:zxxk.com OR site:neea.edu.cn OR site:gaokao.com OR site:quanguo.cn"
     try:
         ddg_results = DDGS().text(site_query, region="wt-wt", max_results=5)
         if ddg_results:
@@ -146,9 +161,11 @@ def search_and_summarize(query: str) -> str:
 - 中国教育考试网 (neea.edu.cn) - 官方考试信息
 - 学科网 (zxxk.com) - 试卷下载
 - 组卷网 (zujuan.com) - 在线组卷
+- 全国卷网 (quanguo.cn) - 全国卷真题资源
+- 高考网 (gaokao.com) - 高考资源汇总
+- 教育部阳光高考平台 (gaokao.chsi.com.cn) - 官方高考信息
 - 知乎 (zhihu.com) - 学习经验和资源分享
-- 百度文库 (wenku.baidu.com) - 文档资源
-- 高考网 (gaokao.com) - 高考资源"""
+- 百度文库 (wenku.baidu.com) - 文档资源"""
 
     user_prompt = f"""搜索关键词：{query}
 
