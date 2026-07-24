@@ -1,5 +1,6 @@
 # 环境变量（含密钥，禁止上传）
 .env
+.streamlit/secrets.toml
 
 # Python虚拟环境
 .venv/
