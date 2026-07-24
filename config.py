@@ -25,7 +25,7 @@ def _get_secret(key: str, default: str = "") -> str:
 
 # ============ AWS Bedrock 配置 ============
 AWS_CONFIG = {
-    "region": _get_secret("AWS_DEFAULT_REGION", "us-west-2"),
+    "region": _get_secret("AWS_DEFAULT_REGION", "us-east-1"),
     "model_id": _get_secret("BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-6"),
     "temperature": 0.7,
     "max_tokens": 4096,
